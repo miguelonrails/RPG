@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini RPG</title>
+
+<style>
+body{
+    font-family: Arial, sans-serif;
+    background:#111;
+    color:white;
+    margin:0;
+    display:flex;
+    justify-content:center;
+}
+
+#game{
+    width:900px;
+    padding:20px;
+}
+
+h1{
+    text-align:center;
+}
+
+.panel{
+    background:#1e1e1e;
+    padding:15px;
+    margin:10px 0;
+    border-radius:10px;
+}
+
+button{
+    background:#4caf50;
+    border:none;
+    padding:10px;
+    color:white;
+    margin:5px;
+    cursor:pointer;
+    border-radius:6px;
+}
+
+button:hover{
+    background:#66bb6a;
+}
+
+input{
+    padding:8px;
+}
+
+#log{
+    height:150px;
+    overflow-y:auto;
+    background:black;
+    padding:10px;
+    font-size:14px;
+}
+
+.stat{
+    margin:4px 0;
+}
+
+.enemy{
+    color:#ff6b6b;
+}
+
+.player{
+    color:#6bc5ff;
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+<h1>⚔️ Mini RPG</h1>
+
+<div id="creation" class="panel">
+    <h2>Criar Personagem</h2>
+    <input id="nameInput" placeholder="Nome do herói">
+    <button onclick="createCharacter()">Começar</button>
+</div>
+
+<div id="mainUI" style="display:none;">
+
+<div class="panel">
+<h2>Status</h2>
+<div id="stats"></div>
+</div>
+
+<div class="panel">
+<h2>Ações</h2>
+<button onclick="startBattle()">Procurar Inimigo</button>
+<button onclick="openInventory()">Inventário</button>
+<button onclick="saveGame()">Salvar</button>
+</div>
+
+<div id="battleUI" class="panel" style="display:none;">
+<h2>Batalha</h2>
+<div id="enemyStats"></div>
+<button onclick="attack()">Atacar</button>
+<button onclick="heal()">Usar Poção</button>
+<button onclick="run()">Fugir</button>
+</div>
+
+<div id="inventoryUI" class="panel" style="display:none;">
+<h2>Inventário</h2>
+<div id="inventory"></div>
+</div>
+
+<div class="panel">
+<h2>Log</h2>
+<div id="log"></div>
+</div>
+
+</div>
+</div>
+
+<script>
+let player = null;
+let enemy = null;
+
+const enemies = [
+    {name:"Goblin", hp:30, atk:6, def:2, xp:15},
+    {name:"Lobo", hp:40, atk:8, def:3, xp:20},
+    {name:"Orc", hp:60, atk:12, def:5, xp:35}
+];
+
+function log(text){
+    const logBox=document.getElementById("log");
+    logBox.innerHTML += text+"<br>";
+    logBox.scrollTop = logBox.scrollHeight;
+}
+
+function createCharacter(){
+    const name=document.getElementById("nameInput").value || "Herói";
+
+    player={
+        name,
+        level:1,
+        xp:0,
+        xpNext:50,
+        hp:100,
+        maxHp:100,
+        atk:10,
+        def:5,
+        potions:3
+    };
+
+    document.getElementById("creation").style.display="none";
+    document.getElementById("mainUI").style.display="block";
+
+    log(`<span class="player">${player.name} iniciou a jornada!</span>`);
+    updateStats();
+}
+
+function updateStats(){
+    document.getElementById("stats").innerHTML=`
+        <div class="stat">Nome: ${player.name}</div>
+        <div class="stat">Nível: ${player.level}</div>
+        <div class="stat">HP: ${player.hp}/${player.maxHp}</div>
+        <div class="stat">Ataque: ${player.atk}</div>
+        <div class="stat">Defesa: ${player.def}</div>
+        <div class="stat">XP: ${player.xp}/${player.xpNext}</div>
+        <div class="stat">Poções: ${player.potions}</div>
+    `;
+}
+
+function randomEnemy(){
+    let base=enemies[Math.floor(Math.random()*enemies.length)];
+    return {...base};
+}
+
+function startBattle(){
+    enemy=randomEnemy();
+    document.getElementById("battleUI").style.display="block";
+    updateEnemy();
+    log(`<span class="enemy">Um ${enemy.name} apareceu!</span>`);
+}
+
+function updateEnemy(){
+    document.getElementById("enemyStats").innerHTML=`
+        Inimigo: ${enemy.name}<br>
+        HP: ${enemy.hp}
+    `;
+}
+
+function attack(){
+    let dmg=Math.max(1, player.atk - enemy.def + rand(0,4));
+    enemy.hp -= dmg;
+
+    log(`Você causou ${dmg} de dano!`);
+
+    if(enemy.hp<=0){
+        winBattle();
+        return;
+    }
+
+    enemyTurn();
+    updateEnemy();
+}
+
+function enemyTurn(){
+    let dmg=Math.max(1, enemy.atk - player.def + rand(0,3));
+    player.hp -= dmg;
+
+    log(`<span class="enemy">${enemy.name}</span> causou ${dmg} de dano!`);
+
+    if(player.hp<=0){
+        log("💀 Você morreu...");
+        resetGame();
+    }
+
+    updateStats();
+}
+
+function heal(){
+    if(player.potions<=0){
+        log("Sem poções!");
+        return;
+    }
+
+    player.potions--;
+    player.hp=Math.min(player.maxHp, player.hp+30);
+    log("Você usou uma poção!");
+    updateStats();
+}
+
+function run(){
+    log("Você fugiu!");
+    endBattle();
+}
+
+function winBattle(){
+    log(`Você derrotou o ${enemy.name}! +${enemy.xp} XP`);
+    player.xp += enemy.xp;
+
+    if(Math.random()<0.4){
+        player.potions++;
+        log("Você encontrou uma poção!");
+    }
+
+    levelUpCheck();
+    endBattle();
+}
+
+function levelUpCheck(){
+    if(player.xp >= player.xpNext){
+        player.xp -= player.xpNext;
+        player.level++;
+        player.xpNext = Math.floor(player.xpNext*1.4);
+
+        player.maxHp+=20;
+        player.hp=player.maxHp;
+        player.atk+=3;
+        player.def+=2;
+
+        log("✨ LEVEL UP!");
+    }
+    updateStats();
+}
+
+function endBattle(){
+    enemy=null;
+    document.getElementById("battleUI").style.display="none";
+    updateStats();
+}
+
+function openInventory(){
+    const inv=document.getElementById("inventoryUI");
+    inv.style.display = inv.style.display==="none" ? "block":"none";
+
+    document.getElementById("inventory").innerHTML=
+        `Poções de cura: ${player.potions}`;
+}
+
+function rand(min,max){
+    return Math.floor(Math.random()*(max-min+1))+min;
+}
+
+function saveGame(){
+    localStorage.setItem("miniRPGSave", JSON.stringify(player));
+    log("💾 Jogo salvo!");
+}
+
+function loadGame(){
+    let save=localStorage.getItem("miniRPGSave");
+    if(save){
+        player=JSON.parse(save);
+        document.getElementById("creation").style.display="none";
+        document.getElementById("mainUI").style.display="block";
+        updateStats();
+        log("Save carregado!");
+    }
+}
+
+function resetGame(){
+    localStorage.removeItem("miniRPGSave");
+    location.reload();
+}
+
+loadGame();
+</script>
+
+</body>
+</html>
